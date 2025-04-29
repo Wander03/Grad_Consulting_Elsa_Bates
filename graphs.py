@@ -4,7 +4,6 @@ import os
 from plotnine import *
 from scipy.stats import pearsonr
 
-
 # ===================================================================================================================
 # Reading in all data files
 # ===================================================================================================================
@@ -139,7 +138,7 @@ def plot_differences(aligned_data, motion_name, smooth=True):
     
     combined = pd.concat(diff_data)
     
-    # Calculate Pearson correlation coefficient
+    # Calculate Pearson correlation coefficient DO FOR EAH THEN INTER QUARTILE RANGE FOR OVERALL
     corr_coef, _ = pearsonr(all_mocap, all_imu)
 
     # Base plot
@@ -176,13 +175,13 @@ def plot_differences(aligned_data, motion_name, smooth=True):
     return plot
 
 p = plot_differences(aligned_axial, 'Axial Rotation', smooth=False)
-# p.show()
+p.show()
 
 p = plot_differences(aligned_axial, 'Axial Rotation', smooth=True)
-# p.show()
+p.show()
 
 p = plot_differences(aligned_flexion, 'Flexion', smooth=True)
-# p.show()
+p.show()
 
 p = plot_differences(aligned_lateral, 'Lateral', smooth=True)
 # p.show()
