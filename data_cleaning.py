@@ -182,9 +182,8 @@ def process_motion(motion_dict, angle_col_name):
                 mocap_df = devices['MoCap'].rename(
                     columns={f'{angle_col_name} Angle MoCap (degrees)': 'Angle MoCap (degrees)'})
                 
-                # Align data (uncommment desired method)
+                # Align data
                 aligned_df = align_imu_mocap_data(imu_df, mocap_df)
-                # aligned_df = align_imu_mocap_data_seq(imu_df, mocap_df)
             
                 aligned_data[trial_num] = aligned_df
             else:
@@ -201,7 +200,60 @@ aligned_flexion = process_motion(flexion, 'Flexion')
 aligned_lateral = process_motion(lateral_bending, 'LateralBending')
 
 # ===================================================================================================================
-# Save aligned data
+# Calculate Proportion of Time spent over THRESH Dregrees (THRESH = 60)
+# ===================================================================================================================
+
+# Threshold for considering an angle measurement "harmful"
+THRESH = 60  
+
+# Combine all movement data into a single DataFrame
+frames = []
+for movement, trial_dict in {
+    'flexion': aligned_flexion,
+    'lateral': aligned_lateral,
+    'axial': aligned_axial
+}.items():
+    for participant_id, df in trial_dict.items():
+        df_copy = df.copy()
+        df_copy['participant'] = participant_id
+        df_copy['movement'] = movement
+        frames.append(df_copy)
+        
+all_data = pd.concat(frames, ignore_index=True)
+
+# Reshape data to long format with device types as a column
+long_format = all_data.melt(
+    id_vars=['participant', 'movement', 'AlignedTime', 'TrialNumber'],
+    value_vars=['Angle IMU (degrees)', 'Angle MoCap (degrees)'],
+    var_name='device', 
+    value_name='angle'
+)
+
+# Clean device names and flag harmful angles
+long_format['device'] = long_format['device'].str.extract(r'(IMU|MoCap)')
+long_format['harmful'] = long_format['angle'].abs() >= THRESH  # Using absolute value if negative angles matter
+
+# Calculate harmful proportions by participant, movement and device
+harmful_props = (
+    long_format
+    .groupby(['participant', 'movement', 'device'])['harmful']
+    .agg(
+        harmful_count='sum',         # Number of harmful measurements
+        total_samples='size'       # Total number of measurements
+    )
+    .reset_index()
+)
+
+# Calculate proportion and rename columns
+harmful_props['prop_harmful'] = harmful_props['harmful_count'] / harmful_props['total_samples']
+result = harmful_props[['participant', 'movement', 'device', 'prop_harmful']]
+
+# Sort for better readability
+result = result.sort_values(['participant', 'movement', 'device'])
+
+
+# ===================================================================================================================
+# Save aligned data and Proportion in Bad Posture data
 # ===================================================================================================================
 
 # Create the directory if it doesn't exist
@@ -216,3 +268,6 @@ for trial_num, df in aligned_flexion.items():
 
 for trial_num, df in aligned_lateral.items():
     df.to_csv(f"{output_dir}/lateral_trial_{trial_num}.csv", index=False)
+
+
+result.to_csv(f"prop_bad_posture_long.csv", index=False)
