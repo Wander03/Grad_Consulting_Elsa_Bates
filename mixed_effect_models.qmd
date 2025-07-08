@@ -1,0 +1,148 @@
+---
+title: "Linear Mixed Models -- Curve Characteristics"
+format: 
+  html:
+    self-contained: True 
+editor: source
+author: Brandon Kim, Andrew Kerr, Lily Cook, and Kyle Bistrain
+code-fold: true
+execute:
+  message: false
+  warning: false
+---
+
+## Mixed Effects Models and Visualizations for Elsa Bates
+
+These code chunks work similarly to .jpynb code chunks.
+
+Make sure to run this code chunk containing the required packages!
+
+```{r}
+library(tidyverse)
+library(lmerTest)
+library(emmeans)
+library(multcomp)
+```
+
+```{r, warning = FALSE,message = FALSE, echo = TRUE}
+# insert your local file path into the read_csv command
+curve_characteristics <- read_csv("../data/curve_characteristics.csv")
+head(curve_characteristics)
+```
+
+## Model with Response Proportion of time spent in a Harmful Posture
+
+```{r}
+# Fit a mixed-effects model:
+#   Response: prop_harmful (proportion of time in harmful posture)
+#   Predictors: movement, device, and their interaction
+#   Random effects: intercept and slope for movement by participant
+#   add a hashtag to comment out a line 
+#   Comment out |> filter(movement != "lateral") if you want to include it in your analysis
+prop_harmful_mod <- lmer(prop_harmful ~ movement*device + (1 + movement | participant),
+                         data = curve_characteristics 
+                                  |> filter(movement != "lateral")
+                         )
+```
+
+```{r}
+# evaluate model fit with residuals
+plot(prop_harmful_mod)
+```
+
+```{r}
+# Display summaries of fixed and random effects for each model
+summary(prop_harmful_mod)
+```
+
+**Sample Interpretation of Fixed Effects**
+
+-   Intercept (Estimate = 0.27575, p\<2e-16): This predicted proportion of time spent in harmful posture for the Axial movement measured with the IMU device is 0.27575.
+-   movementflexion (Estimate = -0.01997, p = 0.405): Changing from axial to flexion movement with the IMU has a predicted decrease of 0.01997 in harmful posture proportion.
+-   devicemocap (Estimate = 0.09160, p \< 1e-7): Under Axial movement, MoCap measures a predicted harmful-posture proportion that is 0.0916 higher than the IMU.
+-   movementflexion:devicemocap (Estimate = -0.09939, p \< 1e-5): The interaction effect between flexion and mocap indicates for MoCap, the predicted proportion of time in a harmful posture is about 9.9939 percentage points lower during Flexion than it is during axial movement.
+
+**Sample Interpretation of Random Effects**
+
+-   Participant slope for Flexion (Variance = 0.00981, SD = 0.0990): Individuals differ more in how Flexion changes their posture proportion.
+-   Correlation = –0.84 between intercept and slope demonstrates that participants with higher baseline proportion harmful posture tend to show smaller Flexion effects and vice versa.
+
+```{r}
+# analysis of variance
+anova(prop_harmful_mod)
+```
+
+**Obtain estimates:**
+
+```{r}
+# Plot estimated marginal means (EMMs) for prop_harmful_mod
+# CIs = TRUE adds confidence intervals
+emmeans(prop_harmful_mod, specs = ~ device|movement)
+
+emmeans(prop_harmful_mod, specs = ~ device|movement) |> 
+  pairs(infer = c(T,T))
+```
+
+```{r}
+# Plot estimated marginal means (EMMs) for prop_harmful_mod
+# CIs = TRUE adds confidence intervals
+emmip(prop_harmful_mod, device ~ movement, CIs = T) +
+  theme_bw() +
+  scale_color_manual(labels = c("IMU", "MoCap"), values = c("cornflowerblue", "darkgreen")) +
+  scale_x_discrete(labels = c("axial" = "Axial", "flexion" = "Flexion")) +
+  scale_y_continuous(limits = c(0,0.5)) +
+  labs(y = "Proportion of Time in Harmful Posture",
+       color = "Device") + 
+  theme()
+```
+
+
+## Model with Response Estimated range of motion by Movement and device
+
+```{r}
+# Fit a mixed-effects model:
+#   Response: Estimated range_of_motion (range of motion measured)
+#   Predictors and random effects same as above
+#   Comment out |> filter(movement != "lateral") if you want to include it in your analysis
+
+range_of_motion_mod <- lmer(range_of_motion ~ movement*device + (1 + movement | participant),
+                         data = curve_characteristics 
+                                  |> filter(movement != "lateral")
+                         )
+```
+
+```{r}
+plot(range_of_motion_mod)
+```
+
+```{r}
+# Display summaries of fixed and random effects
+summary(range_of_motion_mod)
+```
+
+```{r}
+anova(range_of_motion_mod)
+```
+
+
+```{r}
+# Plot estimated marginal means (EMMs) for prop_harmful_mod
+# CIs = TRUE adds confidence intervals
+emmeans(range_of_motion_mod, specs = ~ device|movement)
+
+emmeans(range_of_motion_mod, specs = ~ device|movement) |> 
+  pairs(infer = c(T,T))
+```
+
+```{r}
+# Plot estimated marginal means (EMMs) for range of motion
+# CIs = TRUE adds confidence intervals
+emmip(range_of_motion_mod, device ~ movement, CIs = T) +
+  theme_bw() +
+  scale_color_manual(labels = c("IMU", "MoCap"), values = c("cornflowerblue", "darkgreen")) +
+  scale_x_discrete(labels = c("axial" = "Axial", "flexion" = "Flexion"))+
+  labs(y = "Estimated Range of Motion",
+       color = "Device") + 
+  theme()
+```
+
